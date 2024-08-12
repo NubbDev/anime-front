@@ -1,0 +1,15 @@
+@import url('../font/font.css');
+
+body {
+    --background: #121212;
+    --primary: #0084FF;
+    --headings: #FFFFFF;
+    --sub-text: rgba(255, 255, 255, 75%);
+    --icon-unselected: rgba(255, 255, 255, 75%);
+ 
+    background-color: var(--headings);
+
+    font-family: 'Poppins';
+    color: var(--headings);
+
+}

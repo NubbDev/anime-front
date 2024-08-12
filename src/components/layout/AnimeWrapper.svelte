@@ -80,11 +80,11 @@
         left: 0;
     }
     button p {
-        font-size: clamp(0.75rem, 2vw, 1.25rem);
+        font-size: clamp(0.65rem, 2.25vw, 3rem);
         margin: 0;
         position: relative;
         top: 0;
-        left: calc(100% - clamp(0.1rem, 3vw, 2rem));
+        left: calc(100% - clamp(0.5rem, 2.25vw, 2rem));
         writing-mode: vertical-lr;
         text-align: center;
     }

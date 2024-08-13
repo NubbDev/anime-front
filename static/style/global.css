@@ -11,11 +11,20 @@ body {
 
     font-family: 'Poppins';
     color: var(--headings);
-    overflow-y: scroll;
-    overflow-x: hidden;
+    /* overflow-y: scroll;
+    overflow-x: hidden; */
 
     margin: 0;
     padding: 0;
+    /* overflow-x: hidden;
+    overflow-y: scroll; */
+}
+body .main_body {
+    overflow-x: hidden;
+    overflow-y: scroll;
+    position: relative;
+    height: 100vh;
+    scroll-behavior: smooth;
 }
 
 html {

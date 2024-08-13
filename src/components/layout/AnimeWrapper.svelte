@@ -1,20 +1,25 @@
 <script lang="ts">
     import type { AnimeCardInfo } from "$lib";
+  import { onMount } from "svelte";
 
     export let anime: AnimeCardInfo;
+    export let height: number = 0;
 
     let animeCover = anime.coverImage.large;
     let animeColor = anime.coverImage.color;
-    let animeTitle = anime.title.english;
+    let animeTitle = anime.title.english || anime.title.native;
 
-    if (animeTitle.length > 25) {
-        let splitTitle = animeTitle.split(" ");
-        animeTitle = "";
-        while (animeTitle.length < 20) {
-            animeTitle += splitTitle.shift() + " ";
+    onMount(() => {
+        if (animeTitle.length > 25) {
+            let splitTitle = animeTitle.split(" ");
+            animeTitle = "";
+            while (animeTitle.length < 20) {
+                animeTitle += splitTitle.shift() + " ";
+            }
+            animeTitle += "...";
         }
-        animeTitle += "...";
-    }
+    });
+
 
     function hexToRgb(hex: string) {
         var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -39,7 +44,7 @@
     let textColor = getTextColor(animeColor);
 </script>
 
-<div>
+<div bind:clientHeight={height}>
     <button style=" background-color: {animeColor}">
         <span class="anime-pic" style="background-image: url({animeCover});"></span>
         <p style="color: {textColor};">{animeTitle}</p>
@@ -80,7 +85,7 @@
         left: 0;
     }
     button p {
-        font-size: clamp(0.65rem, 2.25vw, 3rem);
+        font-size: clamp(0.75rem, 2.25vw, 3rem);
         margin: 0;
         position: relative;
         top: 0;

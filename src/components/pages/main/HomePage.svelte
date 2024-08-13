@@ -7,6 +7,7 @@
 
     import AnimeSections from './AnimeSections.svelte'
     import BannerCarousel from './BannerCarousel.svelte'
+  import FillerSpace from "../../layout/FillerSpace.svelte";
 
     let frontpage: {
         trending: AnimeCardInfo[],
@@ -16,10 +17,10 @@
     }
 
     const getData = async () => {
-        // return await invoke("get_frontpage") as typeof frontpage;
+        const data = await invoke("get_frontpage") as typeof frontpage;
 
-        const response = await fetch('http://127.0.0.1:8787/anime/frontpage', { method: 'GET',  mode: 'cors', });
-        return await response.json() as typeof frontpage;
+        // const data = await (await fetch('http://127.0.0.1:8787/anime/frontpage', { method: 'GET',  mode: 'cors', })).json()
+        return data as typeof frontpage;
     }
 
     onMount(async () => {
@@ -45,3 +46,4 @@
     <AnimeSections title="Popular" animes={frontpage.popular} />
     <AnimeSections title="Top" animes={frontpage.top} />
 {/if}
+<FillerSpace height="10vh" />

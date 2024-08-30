@@ -1,110 +1,132 @@
 <script lang="ts">
-    import { MediaTrendSort, PageIndex, type AnimeCardInfo, TrendingPageStore, findScroller, BodyScroll } from "$lib";
-    import { onMount } from "svelte";
+    import { MediaTrendSort, PageIndex, type AnimeCardInfo, BodyScroll, ClientWSMessageType, ServerWSMessageType, Websocket, CachedValues, Page, SearchPageStore } from "$lib";
+    import { onDestroy, onMount } from "svelte";
     import FillerSpace from "../../layout/FillerSpace.svelte";
-    import { invoke } from "@tauri-apps/api/core";
     import AnimeWrapper from "../../layout/AnimeWrapper.svelte";
     import { get } from "svelte/store";
-    import type { UIEventHandler } from "svelte/elements";    
-  import { PopularPageStore, TopPageStore } from "$lib/store";
 
     export let page: PageIndex;
 
     let animes: AnimeCardInfo[] = [];
     let hasNextPage: boolean = true;
-    let totalPages: number = 1;
+    let totalPages: number = 0;
 
-    let scrollY = 0;
-    let section: HTMLElement;
     let animeWrapperHeight = 0;
     let pageHeight = 0;
     let ready = false;
+    let readyForNextPage = true;
     
+    let type: MediaTrendSort | "season" | "search" | null = null;
+
+    onDestroy(() => {
+        animes = [];
+        hasNextPage = true;
+        totalPages = 0;
+        ready = false;
+        readyForNextPage = true;
+        type = null;
+    })
 
     onMount(async () => {
-        let stored: AnimeCardInfo[] | null = null;
+        let cached: {data: typeof animes, lastUpdated: Date} | null = null;
+        totalPages = 1;
+
         switch(page) {
             case PageIndex.TRENDING:
-                stored = get(TrendingPageStore);
+                cached = await CachedValues.getPage(Page.Trending);
+                type = MediaTrendSort.TRENDING_DESC;
                 break;
             case PageIndex.POPULAR:
-                stored = get(PopularPageStore)
+                cached = await CachedValues.getPage(Page.Popular);
+                type = MediaTrendSort.POPULARITY_DESC;
                 break;
             case PageIndex.TOP:
-                stored = get(TopPageStore);
+                cached = await CachedValues.getPage(Page.Top);
+                type = MediaTrendSort.SCORE_DESC;
                 break;
             case PageIndex.SEASON:
+                cached = await CachedValues.getPage(Page.Seasonal);
+                type = "season";
+                break;
+            case PageIndex.SEARCH:
+                type = "search";
                 break;
             default: {
+                console.error("Invalid page index");
                 return;
             }
         }
-
-        if (stored != null) {
-            animes = stored;
-            totalPages = 1;
-            return;
-        }
-        await refreshAnimeList(1);
-        if (stored == null) {
-            switch(page) {
-                case PageIndex.TRENDING:
-                    TrendingPageStore.set(animes);
-                    break;
-                case PageIndex.POPULAR:
-                    PopularPageStore.set(animes);
-                    break;
-                case PageIndex.TOP:
-                    TopPageStore.set(animes);
-                    break;
+        if (type == null) return;
+        if (cached != null) {
+            const date = new Date();
+            if (date.getTime() - cached.lastUpdated.getTime() > 1000 * 60 * 60) {
+                return await refreshAnimeList(1);
             }
-            totalPages = 1;
+            animes = cached.data;
+            totalPages = 2;
+            return ready = true;
         }
+
+        await refreshAnimeList(1);
         ready = true;
     });
 
-    const refreshAnimeList = async (pageNumber: number) => {
-        switch(page) {
-            case PageIndex.TRENDING:
-                animes = [...animes, ...(await getData(MediaTrendSort.TRENDING_DESC, pageNumber)).data];
-                break;
-            case PageIndex.POPULAR:
-                animes = [...animes, ...(await getData(MediaTrendSort.POPULARITY_DESC, pageNumber)).data];
-                break;
-            case PageIndex.TOP:
-                animes = [...animes, ...(await getData(MediaTrendSort.SCORE_DESC, pageNumber)).data];
-                break;
-            case PageIndex.SEASON:
-                // animes = [...animes, ...(await getData(MediaTrendSort., pageNumber)).data];
-                break;
-        }
-        
+    if (page == PageIndex.SEARCH) {
+        Websocket.addListener<{list: AnimeCardInfo[], hasNextPage: boolean}>(ServerWSMessageType.SearchPageContent, message => {
+            animes = message.list;
+            hasNextPage = message.hasNextPage;
+            readyForNextPage = true;
+            CachedValues.setPage(Page.Search, animes);
+        })
+    } else {
+        Websocket.addListener<{media: AnimeCardInfo[], hasNextPage: boolean}>(ServerWSMessageType.CommonPageData, message => {
+            animes = [...animes, ...message.media];
+            hasNextPage = message.hasNextPage;
+            if (totalPages == 1) {
+                switch(page) {
+                    case PageIndex.TRENDING:
+                        CachedValues.setPage(Page.Trending, animes);
+                        break;
+                    case PageIndex.POPULAR:
+                        CachedValues.setPage(Page.Popular, animes);
+                        break;
+                    case PageIndex.TOP:
+                        CachedValues.setPage(Page.Top, animes);
+                        break;
+                    case PageIndex.SEASON:
+                        CachedValues.setPage(Page.Seasonal, animes);
+                    break;
+                }
+                totalPages = 2;
+            } else {
+                totalPages++;
+            }
+    
+            readyForNextPage = true;
+        })
     }
 
-    const getData = async (path: MediaTrendSort, page: number) => {
-        
-        if (!hasNextPage) return { data: [], hasNextPage: false };
-        const path_lowercase = path.toLowerCase();
-        const data = await invoke("get_page", { path: path_lowercase, page, genres: [], blacklistedGenres: [] }) as { data: AnimeCardInfo[], hasNextPage: boolean };
-        
-        // const data = await (async () => {
-        //     const url = new URL(`http://127.0.0.1:8787/anime/pages/${path_lowercase}`);
-        //     url.searchParams.append('page', page.toString());
-        //     url.searchParams.append('genres', "");
-        //     url.searchParams.append('blacklisted', "");
-        //     return await (await fetch(url, { method: 'GET',  mode: 'cors', })).json()
-        // })()
-
-        hasNextPage = data.hasNextPage;
-        return data as { data: AnimeCardInfo[], hasNextPage: boolean }
+    const refreshAnimeList = async (pageNumber: number) => {
+        let seasonCheck = type === "season";
+        let searchCheck = type === "search";
+        await Websocket.send(ClientWSMessageType.CommonPage, {
+            page: pageNumber,
+            date: seasonCheck ? new Date().toISOString() : undefined,
+            genres: [],
+            blacklistedGenres: [],
+            sort: seasonCheck ? [MediaTrendSort.TRENDING_DESC, MediaTrendSort.POPULARITY_DESC] : [type],
+            search: searchCheck ? get(SearchPageStore)?.value! : undefined,
+        });
     }
 
     BodyScroll.subscribe(async (value) => {
         if (!ready) return;
         if (!hasNextPage) return;
-        const middleOfCurrentPage = (pageHeight / totalPages) / 2
-        if (value > pageHeight - middleOfCurrentPage) {
-            totalPages++;
+        if (totalPages == 0) return;
+        const currentPageCount = totalPages - 1
+        const middleOfCurrentPage = (pageHeight / currentPageCount) * 2 / 3;
+        if (readyForNextPage && value > pageHeight - (middleOfCurrentPage)) {
+            readyForNextPage = false;
             await refreshAnimeList(totalPages);
         }
     })
@@ -113,12 +135,17 @@
     
 </script>
 
-<!-- <svelte:window bind:this={section}/> -->
 <main>
-    <section bind:clientHeight={pageHeight}>
+    <section class="options">
+
+    </section>
+    <FillerSpace height="10vh" />
+    <section class="anime_list" bind:clientHeight={pageHeight}>
         {#if animes}
             {#each animes as anime}
-                <AnimeWrapper anime={anime} bind:height={animeWrapperHeight}/>
+                <div>
+                    <AnimeWrapper anime={anime} bind:height={animeWrapperHeight}/>
+                </div>
             {/each}
         {/if}
     </section>
@@ -128,14 +155,27 @@
     main {
         width: 100vw;
         background: var(--background);
+        
     }
 
-    main section {
+    main .options {
+        display: flex;
+        justify-content: center;
+        height: 10vh;
+        position: fixed;
+    }
+
+    main .anime_list {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
         gap: 1rem;
         padding: 1rem;
         overflow-y: scroll;
+        position: relative;
+    }
+
+    main .anime_list div:last-child {
+        margin-bottom: 10vh;
     }
 </style>

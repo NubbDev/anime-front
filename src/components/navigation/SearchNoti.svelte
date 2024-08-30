@@ -5,13 +5,17 @@
     import LinedNotiBell from '$lib/assets/icons/bell-notification-social-media.svg?component';
     import SearchSVG from '$lib/assets/icons/search.svg?component';
 
-    import { DisplayStateCSS, PageIndex, PageStore } from '$lib';
-    import { get } from 'svelte/store';
+    import { BodyScroll, PageIndex, History, AppSearchStore} from '$lib';
     import { onMount } from 'svelte';
 
-    let searchBarShow: DisplayStateCSS = DisplayStateCSS.HIDE;
+    // export let socket: WebSocket;
+    
 
-    let searchValue = "";
+    let showBackDrop: "hide" | "show" = "hide";
+    let pastScroll = 0;
+    let shouldBackgroundMove = false;
+    let display: 'hide' | 'show' = 'show';
+    let show = true;
 
     const NotificationIcon = {
         yes: {
@@ -23,13 +27,14 @@
             unSelected: LinedBell
         },
         hasNotification: true,
-        state: DisplayStateCSS.HIDE
+        state: false
     }
 
     const SearchIcon = {
         selected: SearchSVG,
-        state: DisplayStateCSS.HIDE
+        state: false
     }
+
 
     const setNotification = (hasNotification: boolean) => {
         NotificationIcon.hasNotification = hasNotification;
@@ -40,45 +45,65 @@
     }
 
     const displaySearchBar = () => {
-        searchBarShow = searchBarShow === DisplayStateCSS.SHOW ? DisplayStateCSS.HIDE : DisplayStateCSS.SHOW;
-        searchValue = "";
+        AppSearchStore.set(true);
     }
+    onMount(() => {
+        let threshold = window.innerHeight * 0.1;
+        BodyScroll.subscribe(value => {
+            if (value > threshold && !shouldBackgroundMove) {
+                shouldBackgroundMove = true;
+                showBackDrop = "show";
+                
+            } else if (value < threshold && shouldBackgroundMove) {
+                shouldBackgroundMove = false;
+                showBackDrop = "hide";
+            }
+            
+            threshold = window.innerHeight * 0.1;
+        })
 
-    const typeSeatrch = (e: Event) => {
-        searchValue = (e.target as HTMLInputElement).value;
-        console.log(searchValue);
-    }
+        display = 'hide';
+        show = false;
+        
+    })
 
-    
+    History.onUpdate(value => {
+        // if (value == PageIndex.ANIME || value == PageIndex.PLAYER) {
+        //     display = 'hide';
+        //     setTimeout(() => {
+        //         show = false;
+        //     }, 650)
+        // } else {
+        //     show = true;
+        //     setTimeout(() => {
+        //         display = 'show';
+        //     }, 10)
+        // }
+    })    
 </script>
 
+{#if show}
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<section class="SEARCH_NOTI_BAR">
-    {#if searchBarShow == DisplayStateCSS.HIDE} 
-        <button class="bell" on:click={openNotifications} on:pointerenter={() => NotificationIcon.state = DisplayStateCSS.SHOW} on:pointerleave={() => NotificationIcon.state = DisplayStateCSS.HIDE}>
-            {#if !NotificationIcon.hasNotification}
-                <svelte:component this={NotificationIcon.no.selected} class={NotificationIcon.state == DisplayStateCSS.SHOW ? "show" : "hide"}/>
-                <svelte:component this={NotificationIcon.no.unSelected} class={NotificationIcon.state == DisplayStateCSS.SHOW ? "hide" : "show"}/>
-            {:else}
-                <svelte:component this={NotificationIcon.yes.selected} class={NotificationIcon.state == DisplayStateCSS.SHOW ? "show" : "hide"}/>
-                <svelte:component this={NotificationIcon.yes.unSelected} class={NotificationIcon.state == DisplayStateCSS.SHOW ? "hide" : "show"}/>
-            {/if}
-        </button>
-        
-        <button class="searchbutton" on:click={displaySearchBar}>
-            <svelte:component this={SearchIcon.selected} />
-        </button>
-    {/if}
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <div class="search_bar {searchBarShow == DisplayStateCSS.SHOW ? 'show' : 'hide'}" on:click={displaySearchBar}>
-        <input type="text" placeholder="Search..." on:input={typeSeatrch} value={searchValue}/>
-        <div class="backdrop {searchBarShow == DisplayStateCSS.SHOW ? 'show' : 'hide'}"></div>
-    </div>
-
+<section class="SEARCH_NOTI_BAR {display}">
+    <span class="SEARCH_NOTI_BAR_Background {showBackDrop}"/>
+    <button class="bell" on:click={openNotifications} on:pointerenter={() => NotificationIcon.state = true} on:pointerleave={() => NotificationIcon.state = false}>
+        {#if !NotificationIcon.hasNotification}
+            <svelte:component this={NotificationIcon.no.selected} class={NotificationIcon.state ? "show" : "hide"}/>
+            <svelte:component this={NotificationIcon.no.unSelected} class={NotificationIcon.state ? "hide" : "show"}/>
+        {:else}
+            <svelte:component this={NotificationIcon.yes.selected} class={NotificationIcon.state ? "show" : "hide"}/>
+            <svelte:component this={NotificationIcon.yes.unSelected} class={NotificationIcon.state ? "hide" : "show"}/>
+        {/if}
+    </button>
+    
+    <button class="searchbutton" on:click={displaySearchBar}>
+        <svelte:component this={SearchIcon.selected} />
+    </button>
 </section>
+{/if}
 
 <style>
-    section {
+    section.SEARCH_NOTI_BAR {
         position: fixed;
         top: 0;
         left: 0;
@@ -89,10 +114,42 @@
         padding-top: 7vh;
         box-sizing: border-box;
         gap: 2em;
-        z-index: 100;
+        z-index: 10;
+        transition: transform 0.5s ease, opacity 0.5s ease;
     }
 
-    section button {
+    section.SEARCH_NOTI_BAR.hide {
+        opacity: 0;
+    }
+
+    section.SEARCH_NOTI_BAR.show {
+        opacity: 1;
+    }
+
+    section.SEARCH_NOTI_BAR .SEARCH_NOTI_BAR_Background {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        /* border-radius: 10rem; */
+        background: rgba(0, 0, 0, 0.5);
+        z-index: -1;
+        backdrop-filter: blur(10px);
+        transition: height 0.5s ease, transform 0.5s ease;
+        width: 100%;
+        height: 120%;
+    }
+
+    section.SEARCH_NOTI_BAR .SEARCH_NOTI_BAR_Background.hide {
+        height: 0;
+        transform: translate(-50%, -50%);
+    }
+    section.SEARCH_NOTI_BAR .SEARCH_NOTI_BAR_Background.show {
+        width: 100%;
+        height: 120%;
+        transform: translate(-50%, 0%);
+    }
+
+    section.SEARCH_NOTI_BAR button {
         position: relative;
         width: 2em;
         height: 2em;
@@ -100,65 +157,8 @@
         border: none;
 
     }
-    section .search_bar {
-        position: absolute;
-        top: 6.5vh;
-        height: 2.5rem;
-        transition: width 0.5s ease;
-        
-    }
-    section .search_bar.hide {
-        width: 2rem;
-    }
-    section .search_bar.show {
-        width: 90vw;
-        right: 5vw;
-    }
 
-    section .search_bar.show input {
-        transition: all 0.5s ease;
-        background: rgba(255, 255, 255, 0.5);
-        border-color: #fff;
-        opacity: 1;
-        color: #fff;
-    }
-
-    section .search_bar.hide input {
-        opacity: 0;
-    }
-
-    section .search_bar.show input:focus {
-        border: #fff;
-    }
-
-    section .search_bar .backdrop {
-        position: absolute;
-        top: -7vh;
-        left: -5vw;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: -1;
-        backdrop-filter: blur(10px);
-    }
-
-    
-
-    section .search_bar .backdrop.hide {
-        width: 0;
-        height: 0;
-    }
-
-    section .search_bar input {
-        width: 100%;
-        height: 100%;
-        border: 1px solid var(--icon-unselected);
-        border-radius: 2rem;
-        padding: 0 1em;
-        box-sizing: border-box;
-    }
-
-    :global(.SEARCH_NOTI_BAR svg) {
+    :global(section.SEARCH_NOTI_BAR svg) {
         width: 2em;
         height: 2em;
         fill: var(--icon-unselected);
@@ -167,10 +167,12 @@
         left: 50%;
         transform: translate(-50%, -50%);
     }
-    :global(.SEARCH_NOTI_BAR svg.show) {
+    :global(section.SEARCH_NOTI_BAR svg.show) {
         opacity: 1;
     }   
-    :global(.SEARCH_NOTI_BAR svg.hide) {
+    :global(section.SEARCH_NOTI_BAR svg.hide) {
         opacity: 0;
-    }    
+    }
+
+    
 </style>

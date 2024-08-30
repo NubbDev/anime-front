@@ -1,307 +1,164 @@
 <script lang="ts">
-  import { PageIndex, PageStore, PageHistory, BodyScroll } from '$lib'
+  import { History, PageIndex, BodyScroll, AppStateStore, AppStates, Websocket, Page, ServerWSMessageType, TimeElapsedStore, AnimeSelectedStore, type AnimeInfo, AnimePlayerStore } from '$lib'
   import NavBar from "../components/navigation/NavBar.svelte";
   import SearchNoti from "../components/navigation/SearchNoti.svelte";
-  import FillerSpace from "../components/layout/FillerSpace.svelte";
   import HomePage from "../components/pages/main/HomePage.svelte";
   import MorePage from "../components/pages/main/MorePage.svelte";
   import { get } from 'svelte/store';
   import { onMount } from 'svelte';
 
-  let history: PageIndex[] = [];
+  import LoadingScreen from '../components/layout/LoadingScreen.svelte';
+  import Search from '../components/layout/Search.svelte';
+  import AnimeInfoPage from '../components/pages/anime_info/AnimeInfo.svelte';
+  import type { GogoEpisodeLink } from '$lib/misc/types';
+  import PlayerPage from '../components/pages/player/PlayerPage.svelte';
+
+  let appWebSocket: Websocket;
+
   let div: Element
+
   const PageState = {
     home: {
-      display: true,
+      display: 'show',
       show: true
     },
     season: {
-      display: false,
+      display: 'hide',
       show: false
     },
     trending: {
-      display: false,
+      display: 'hide',
       show: false
     },
     popular: {
-      display: false,
+      display: 'hide',
       show: false
     },
     top: {
-      display: false,
+      display: 'hide',
+      show: false
+    },
+    anime: {
+      display: 'hide',
       show: false
     },
     releases: {
-      display: false,
+      display: 'hide',
       show: false
     },
     downloads: {
-      display: false,
+      display: 'hide',
       show: false
     },
     profile: {
-      display: false,
+      display: 'hide',
       show: false
     },
     setting: {
-      display: false,
+      display: 'hide',
+      show: false
+    },
+    search: {
+      display: 'hide',
+      show: false
+    },
+    about: {
+      display: 'hide',
+      show: false
+    },
+    player: {
+      display: 'hide',
+      show: false
+    },
+    auth: {
+      display: 'hide',
+      show: false
+    },
+    notFound: {
+      display: 'hide',
       show: false
     }
   }
 
-  PageStore.subscribe(value => {
-    if (div != undefined) {
-      div.scrollTop = 0;
-    }
-    let historySaved = get(PageHistory);
-    if (value === historySaved[historySaved.length - 1]) {
-      history = historySaved;
-      return;
-    };
-    let fadeInTimeout = 1;
-    let fadeOutTimeout = 500;
+  const showPage = (key: keyof typeof PageState) => {
+    PageState[key].show = true;
+    setTimeout(() => {
+      PageState[key].display = 'show';
+    }, 10)
+    return 
+  }
 
-    switch (value) {
-      case PageIndex.HOME: {
-        PageState.home.show = true;
-        setTimeout(() => {
-          PageState.home.display = true;
-        }, fadeInTimeout)
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, fadeOutTimeout);
-        break;
-      }
-      case PageIndex.RELEASES: {
-        PageState.releases.show = true;
-        setTimeout(() => {
-          PageState.releases.display = true;
-        }, fadeInTimeout)
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, fadeOutTimeout);
-        break;
-      }
-      case PageIndex.DOWNLOADS: {
-        PageState.downloads.show = true;
-        setTimeout(() => {
-          PageState.downloads.display = true;
-        }, fadeInTimeout)
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, fadeOutTimeout);
-        break;
-      }
-      case PageIndex.PROFILE: {
-        PageState.profile.show = true;
-        setTimeout(() => {
-          PageState.profile.display = true;
-        }, fadeInTimeout)
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, fadeOutTimeout);
-        break;
-      }
-      case PageIndex.SEASON: {
-        PageState.season.show = true;
-        setTimeout(() => {
-          PageState.season.display = true;
-        }, fadeInTimeout)
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, fadeOutTimeout);
-        break;
-      }
-      case PageIndex.SETTINGS: {
-        PageState.setting.show = true;
-        setTimeout(() => {
-          PageState.setting.display = true;
-        }, fadeInTimeout)
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, fadeOutTimeout);
-        break;
-      }
-      case PageIndex.TRENDING: {
-        PageState.trending.show = true;
-        setTimeout(() => {
-          PageState.trending.display = true;
-        }, fadeInTimeout)
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, fadeOutTimeout);
-        break;
-      }
-      case PageIndex.POPULAR: {
-        PageState.popular.show = true;
-        setTimeout(() => {
-          PageState.popular.display = true;
-        }, fadeInTimeout)
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, fadeOutTimeout);
-        break;
-      }
-      case PageIndex.TOP: {
-        PageState.top.show = true;
-        setTimeout(() => {
-          PageState.top.display = true;
-        }, fadeInTimeout)
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, fadeOutTimeout);
-        break;
-      }
+  const hidePage = (key: keyof typeof PageState) => {
+    PageState[key].display = 'hide';
+    setTimeout(() => {
+      PageState[key].show = false;
+    }, 650)
+    return
+  }
 
-      default:
-        hidePage(value);
-        setTimeout(() => {
-          disablePage(value);
-        }, 500);
-        break;
-    }
-
-    history = [...history, value];
-    PageHistory.update(prev => {
-      return [...prev, value];
-    })
+  History.onUpdate(async value => {
+    // console.log("Current", PageIndex[value])
+    // console.log("Last", PageIndex[History.lastPage])
+    if (div != undefined) div.scrollTop = 0;
+    handle(value, showPage);
+    if (History.lastPage == value || History.lastPage == null) return;
+    handle(History.lastPage, hidePage);
   })
 
-  const hidePage = (nextPage: PageIndex) => {
-    
-    let lastPage = history[history.length - 1];
-    switch (lastPage) {
-      case PageIndex.HOME: {
-        PageState.home.display = false;
+  const handle = (page: PageIndex, callback: (key: keyof typeof PageState) => void) => {
+    switch(page) {
+      case PageIndex.HOME: callback("home");
+        break
+      case PageIndex.TRENDING: callback("trending");
+        break
+      case PageIndex.RELEASES: callback("releases");
+        break
+      case PageIndex.DOWNLOADS: callback("downloads");
+        break
+      case PageIndex.ANIME: callback("anime");
+        break
+      case PageIndex.PROFILE: callback("profile");
+        break
+      case PageIndex.SETTINGS: callback("setting");  
         break;
-      }
-      case PageIndex.TRENDING: {
-        PageState.trending.display = false;
-        break;
-      }
-      case PageIndex.ABOUT: {
-        // PageState..display = false;
-        break;
-      }
-      case PageIndex.RELEASES: {
-        PageState.releases.display = false;
-        break;
-      }
-      case PageIndex.DOWNLOADS: {
-        PageState.downloads.display = false;
-        break;
-      }
-      case PageIndex.PROFILE: {
-        PageState.profile.display = false;
-        break;
-      }
-      case PageIndex.SETTINGS: {
-        PageState.setting.display = false;
-        break;
-      }
-      case PageIndex.PLAYER: {
-        // PageState.trending.display = false;
-        break;
-      }
-      case PageIndex.SEARCH: {
-        // PageState.trending.display = false;
-        break;
-      }
-      case PageIndex.AUTHENCATION: {
-        // PageState.trending.display = false;
-        break;
-      }
-      case PageIndex.NOT_FOUND: {
-        // PageState.trending.display = false;
-        break;
-      }
-      case PageIndex.POPULAR: {
-        PageState.popular.display = false;
-        break;
-      }
-      case PageIndex.TOP: {
-        PageState.top.display = false;
-        break;
-      }
-      case PageIndex.SEASON: {
-        // PageState.trending.display = false;
-        break;
-      }
+      case PageIndex.POPULAR: callback("popular");
+        break
+      case PageIndex.TOP: callback("top");
+        break
+      case PageIndex.SEASON: callback("season");
+        break
+      case PageIndex.ABOUT: callback("about");
+        break
+      case PageIndex.PLAYER: callback("player");
+        break
+      case PageIndex.SEARCH: callback("search");
+        break
+      case PageIndex.AUTHENCATION: callback("auth");
+        break
+      case PageIndex.NOT_FOUND: callback("notFound");
+        break
     }
   }
 
-  const disablePage = (nextPage: PageIndex) => {
-    let lastPage = history[history.length - 2];
-    switch (lastPage) {
-      case PageIndex.HOME: {
-        PageState.home.show = false;
-        break;
-      }
-      case PageIndex.TRENDING: {
-        PageState.trending.show = false;
-        break;
-      }
-      case PageIndex.ABOUT: {
-        // PageState..show = false;
-        break;
-      }
-      case PageIndex.RELEASES: {
-        PageState.releases.show = false;
-        break;
-      }
-      case PageIndex.DOWNLOADS: {
-        PageState.downloads.show = false;
-        break;
-      }
-      case PageIndex.PROFILE: {
-        PageState.profile.show = false;
-        break;
-      }
-      case PageIndex.SETTINGS: {
-        PageState.setting.show = false;
-        break;
-      }
-      case PageIndex.PLAYER: {
-        // PageState.trending.show = false;
-        break;
-      }
-      case PageIndex.SEARCH: {
-        // PageState.trending.show = false;
-        break;
-      }
-      case PageIndex.AUTHENCATION: {
-        // PageState.trending.show = false;
-        break;
-      }
-      case PageIndex.NOT_FOUND: {
-        // PageState.trending.show = false;
-        break;
-      }
-      case PageIndex.POPULAR: {
-        PageState.popular.show = false;
-        break;
-      }
-      case PageIndex.TOP: {
-        PageState.top.show = false;
-        break;
-      }
-      case PageIndex.SEASON: {
-        // PageState.trending.show = false;
-        break;
-      }
-    }
-  }
+  onMount(async () => {
+    appWebSocket = await Websocket.connect();
+    await History.init();
 
-  onMount(() => {
+    appWebSocket.onConnect(() => {
+      AppStateStore.set(AppStates.CONNECTED);
+    })
+    appWebSocket.onDisconnect(async () => {
+      AppStateStore.set(AppStates.CONNECTING);
+      await History.clear();
+    })
+
+    window.addEventListener('keydown', async (e) => {
+      if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        await Websocket.disconnect()
+      }
+    })
+
     div = document.body.getElementsByClassName('main_body')[0]
     let lastScroll = 0;
     BodyScroll.set(div.scrollTop)
@@ -317,39 +174,69 @@
     handleBodyScroll()
   })
 
+  let appState = get(AppStateStore)
+  AppStateStore.subscribe(value => {
+    appState = value;
+  })
+
+  Websocket.addListener<AnimeInfo>(ServerWSMessageType.AnimeData, message => {
+    AnimeSelectedStore.set(message);
+    History.push(PageIndex.ANIME);
+  })
+
+  Websocket.addListener<GogoEpisodeLink>(ServerWSMessageType.EpisodeLink, message => {
+    AnimePlayerStore.set(message);
+  })
+
 </script>
-<NavBar />
-<SearchNoti/>
 
-<svelte:body />
+<LoadingScreen />
+{#if appState !== AppStates.CONNECTING}
+  <Search/>
+  <NavBar />
+  <SearchNoti />
+  {#if PageState.home.show}
+    <div class="home {PageState.home.display}" >
+      <HomePage/>
+    </div>
+  {/if}
+  {#if PageState.trending.show}
+    <div class="extra {PageState.trending.display}" >
+      <MorePage page={PageIndex.TRENDING}/>
+    </div>
+  {/if}
+  {#if PageState.popular.show}
+    <div class="extra {PageState.popular.display}" >
+      <MorePage page={PageIndex.POPULAR}/>
+    </div>
+  {/if}
+  {#if PageState.top.show}
+    <div class="extra {PageState.top.display}" >
+      <MorePage page={PageIndex.TOP}/>
+    </div>
+  {/if}
+  {#if PageState.season.show}
+    <div class="extra {PageState.season.display}" >
+      <MorePage page={PageIndex.SEASON}/>
+    </div>
+  {/if}
+  {#if PageState.search.show}
+    <div class="extra {PageState.search.display}">
+      <MorePage page={PageIndex.SEARCH}/>
+    </div>
+  {/if}
+  {#if PageState.anime.show}
+    <div class="anime-info {PageState.anime.display}">
+      <AnimeInfoPage/>
+    </div>
+  {/if}
+  {#if PageState.player.show}
+  <div class="anime-player show">
+    <PlayerPage/>
+  </div>
+  {/if}
 
-{#if PageState.home.show}
-  <div class="home {PageState.home.display ? 'show' : 'hide'}" >
-    <HomePage />
-  </div>
 {/if}
-{#if PageState.trending.show}
-  <div class="extra {PageState.trending.display ? 'show' : 'hide'}" >
-    <MorePage page={PageIndex.TRENDING} />
-  </div>
-{/if}
-{#if PageState.popular.show}
-  <div class="extra {PageState.popular.display ? 'show' : 'hide'}" >
-    <MorePage page={PageIndex.POPULAR} />
-  </div>
-{/if}
-{#if PageState.top.show}
-  <div class="extra {PageState.top.display ? 'show' : 'hide'}" >
-    <MorePage page={PageIndex.TOP} />
-  </div>
-{/if}
-<!-- {#if PageState.trending.show}
-  <div class="extra {PageState.trending.display ? 'show' : 'hide'}" >
-    <MorePage page={PageIndex.TRENDING} />
-  </div>
-{/if} -->
-
-
 
 
 <style>
@@ -358,16 +245,12 @@
     top: 0;
     left: 0;
     z-index: 1;
+    height: 100vh;
+    width: 100vw;
   }
-  /* div.show {
-    opacity: 1;
-  }
-  div.hide {
-    opacity: 0;
-  } */
 
   .home {
-    transition: opacity 0.5s;
+    transition: opacity 0.5s ease-in-out;
   }
 
   .home.hide {
@@ -384,6 +267,30 @@
   }
   .extra.show {
     transform: translateX(0);
+  }
+
+  .anime-info {
+    z-index:11;
+    position: fixed;
+    transition: transform 0.5s ease-in-out;
+  } 
+  .anime-info.hide {
+    transform: translateY(100%);
+  }
+  .anime-info.show {
+    transform: translateY(0);
+  }
+
+  .anime-player {
+    z-index: 9;
+    position: fixed;
+    transition: opacity 0.5s ease-in-out;
+  }
+  .anime-player.hide {
+    opacity: 0;
+  }
+  .anime-player.show {
+    opacity: 1;
   }
 
 </style>

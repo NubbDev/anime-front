@@ -1,8 +1,9 @@
 <script lang="ts">
-    import { type AnimeCardInfo, PageIndex, PageStore } from "$lib";
+    import { type AnimeCardInfo, PageIndex, History } from "$lib";
     import AnimeWrapper from "../../layout/AnimeWrapper.svelte";
     export let title: string;
     export let animes: AnimeCardInfo[] = [];
+    
 
     let buttonPage: PageIndex;
     switch(title.toLowerCase()) {
@@ -25,10 +26,10 @@
     <section>
         <span>
             <h3>{title}</h3>
-            <button on:click={() => PageStore.set(buttonPage)}>See all</button>
+            <button on:click={() => History.push(buttonPage)}>See all</button>
         </span>
         <div>
-            {#each animes as anime}
+            {#each animes as anime, i}
                 <AnimeWrapper {anime}/>
             {/each}
         </div>
@@ -62,6 +63,7 @@
         overflow: auto;
         white-space: nowrap;
         display: flex;
+        padding: 0 0.5rem;
     }
 
     span {

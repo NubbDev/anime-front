@@ -1,49 +1,75 @@
 <script lang="ts">
-    import { type AnimeCardInfo, FrontPageStore } from "$lib";
+    import { type AnimeCardInfo, AppStateStore, AppStates, ClientWSMessageType, ServerWSMessageType, Websocket, CachedValues, Page } from "$lib";
     import { get } from "svelte/store";
 
-    import { invoke } from "@tauri-apps/api/core";
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
 
     import AnimeSections from './AnimeSections.svelte'
     import BannerCarousel from './BannerCarousel.svelte'
-  import FillerSpace from "../../layout/FillerSpace.svelte";
+    import FillerSpace from "../../layout/FillerSpace.svelte";
 
     let frontpage: {
         trending: AnimeCardInfo[],
         popular: AnimeCardInfo[],
         season: AnimeCardInfo[],
         top: AnimeCardInfo[],
-    }
+    } | null = null;
+
+    onMount(async() => {
+        await getData();
+    })
+
+    onDestroy(() => {
+        frontpage = null;
+    })
 
     const getData = async () => {
-        const data = await invoke("get_frontpage") as typeof frontpage;
-
-        // const data = await (await fetch('http://127.0.0.1:8787/anime/frontpage', { method: 'GET',  mode: 'cors', })).json()
-        return data as typeof frontpage;
+        const cached = await CachedValues.getPage<typeof frontpage>(Page.Home);
+        if (cached != null) {
+            console.log('cached')
+            const date = new Date();
+            if (date.getTime() - cached.lastUpdated.getTime() > 1000 * 60 * 10) {
+                await Websocket.send(ClientWSMessageType.HomePage);
+                return
+            }
+            frontpage = cached.data;
+            if (get(AppStateStore) == AppStates.CONNECTED) {
+                AppStateStore.set(AppStates.READY);
+            }
+            return 
+        }
+        await Websocket.send(ClientWSMessageType.HomePage);
     }
 
-    onMount(async () => {
-        const store = get(FrontPageStore);
-        if (store !== null) {
-            const date = new Date();
-            const lastUpdate = new Date(store.lastUpdated);
-            // if the last update was more than 1 hour ago, update the frontpage
-            if (date.getTime() - lastUpdate.getTime() > 3600000) {
-                return frontpage = await getData();
-            }
-            return frontpage = store;
+    Websocket.addListener<{ trending: AnimeCardInfo[], popular: AnimeCardInfo[], season: AnimeCardInfo[], top: AnimeCardInfo[]}>(ServerWSMessageType.HomePageRoute, async (message) => {
+        frontpage = message;
+        await CachedValues.setPage(Page.Home, frontpage);
+        if (get(AppStateStore) == AppStates.CONNECTED) {
+            AppStateStore.set(AppStates.READY);
         }
+    })
 
-        frontpage = await getData();
-        FrontPageStore.set({ ...frontpage, lastUpdated: new Date() });
-    });
+    AppStateStore.subscribe(async value => {
+        if (value == AppStates.CONNECTED) {
+            return await getData();
+        }
+    })
 </script>
 
 {#if frontpage}
     <BannerCarousel anime={frontpage.season} />
-    <AnimeSections title="Trending" animes={frontpage.trending} />
-    <AnimeSections title="Popular" animes={frontpage.popular} />
-    <AnimeSections title="Top" animes={frontpage.top} />
+    <div>
+        <AnimeSections title="Trending" animes={frontpage.trending} />
+        <AnimeSections title="Popular" animes={frontpage.popular} />
+        <AnimeSections title="Top" animes={frontpage.top} />
+        <FillerSpace height="7vh" />
+    </div>
 {/if}
-<FillerSpace height="10vh" />
+
+<style>
+    div {
+        position: relative;
+        background: var(--background);
+        z-index: 1;
+    }
+</style>

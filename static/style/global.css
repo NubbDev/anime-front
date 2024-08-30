@@ -2,6 +2,7 @@
 
 body {
     --background: #121212;
+    --background-secondary: #1E1E1E;
     --primary: #0084FF;
     --headings: #FFFFFF;
     --sub-text: rgba(255, 255, 255, 75%);
@@ -21,7 +22,7 @@ body {
 }
 body .main_body {
     overflow-x: hidden;
-    overflow-y: scroll;
+    overflow-y: auto;
     position: relative;
     height: 100vh;
     scroll-behavior: smooth;

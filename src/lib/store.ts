@@ -1,20 +1,13 @@
-import { PageIndex } from "./misc/enums";
+import { AppStates, PageIndex } from "./misc/enums";
 import { writable } from "svelte/store";
-import type { AnimeCardInfo } from "./misc/types";
+import { type GogoEpisodeLink, type AnimeCardInfo, type AnimeInfo } from "./misc/types";
 
-export const PageStore = writable<PageIndex>(PageIndex.HOME);
-export const PageHistory = writable<PageIndex[]>([PageIndex.HOME]);
+export const AppStateStore = writable<AppStates>(AppStates.CONNECTING)
+export const AppSearchStore = writable<boolean>(false)
 
 export const BodyScroll = writable(0)
 
-export const FrontPageStore = writable<{
-    trending: AnimeCardInfo[],
-    popular: AnimeCardInfo[],
-    season: AnimeCardInfo[],
-    top: AnimeCardInfo[],
-    lastUpdated: Date
-} | null>(null)
-export const TrendingPageStore = writable<AnimeCardInfo[] | null>(null)
-export const PopularPageStore = writable<AnimeCardInfo[] | null>(null)
-export const SeasonPageStore = writable<AnimeCardInfo[] | null>(null)
-export const TopPageStore = writable<AnimeCardInfo[] | null>(null)
+export const SearchPageStore = writable<{value: string, list: AnimeCardInfo[]} | null>(null)
+export const TimeElapsedStore = writable<number>(0)
+export const AnimeSelectedStore = writable<AnimeInfo | null>(null)
+export const AnimePlayerStore = writable<GogoEpisodeLink | null>(null)

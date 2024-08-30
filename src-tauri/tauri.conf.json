@@ -4,7 +4,7 @@
   "identifier": "me.nubbless.dev",
   "build": {
     "beforeDevCommand": "yarn dev",
-    "devUrl": "http://192.168.1.81:1420",
+    "devUrl": "http://192.168.36.1:1420",
     "beforeBuildCommand": "yarn build",
     "frontendDist": "../build"
   },
@@ -12,16 +12,14 @@
     "windows": [
       {
         "title": "anime app",
-        "height": 600,
-        "width": 800
+        "height": 915,
+        "width": 412
       }
     ],
     "security": {
       "csp": null
     }
   },
-
-  
 
   "bundle": {
     "active": true,

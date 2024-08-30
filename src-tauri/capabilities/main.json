@@ -3,7 +3,9 @@
     "identifier": "main-capabilities",
     "permissions": [
         "core:window:default",
-        "core:window:allow-start-dragging"
+        "core:window:allow-start-dragging",
+        "core:window:allow-set-resizable",
+        "core:window:allow-set-fullscreen"
     ],
     "windows": ["main"],
     "description": "Main capabilities for the main window"

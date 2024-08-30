@@ -1,22 +1,24 @@
 <script lang="ts">
-    import type { AnimeCardInfo } from "$lib";
-  import { onMount } from "svelte";
+    import { History, type AnimeCardInfo, AnimeSelectedStore, CachedValues, ClientWSMessageType, clipTitle, MediaFormat, PageIndex, TimeElapsedStore, Websocket, type AnimeInfo} from "$lib";
+    import { onMount } from "svelte";
+    import { Image } from '@unpic/svelte'
 
     export let anime: AnimeCardInfo;
     export let height: number = 0;
-
-    let animeCover = anime.coverImage.large;
-    let animeColor = anime.coverImage.color;
-    let animeTitle = anime.title.english || anime.title.native;
+    export let delay: number = 0;
+    let animeCover = anime.coverImage?.large ?? anime.coverImage?.medium!;
+    let animeColor = anime.coverImage?.color;
+    let animeTitle = clipTitle(anime.title.english ?? anime.title.romaji, 25);
+    let format: MediaFormat | string | undefined = anime.format;
+    let formatColor = anime.format;
+    let picture_height = 0;
+    let picture_width = 0;
 
     onMount(() => {
-        if (animeTitle.length > 25) {
-            let splitTitle = animeTitle.split(" ");
-            animeTitle = "";
-            while (animeTitle.length < 20) {
-                animeTitle += splitTitle.shift() + " ";
-            }
-            animeTitle += "...";
+
+        if (format) {
+
+            format = format.replace("_", " ");
         }
     });
 
@@ -41,12 +43,30 @@
         return '#000';
     }
 
-    let textColor = getTextColor(animeColor);
+    let textColor = getTextColor(animeColor as string);
+
+    const setAnime = async () => {
+        const cached = await CachedValues.get<AnimeInfo>(anime.id.toString());
+        if (cached) {
+            const date = new Date();
+            if (date.getTime() - cached.lastUpdated.getTime() > 1000 * 60 * 10) {
+                await Websocket.send(ClientWSMessageType.GetAnime, { id: anime.id });
+                return;
+            }
+            AnimeSelectedStore.set(cached.data);
+            History.push(PageIndex.ANIME);
+            return;
+        }
+        await Websocket.send(ClientWSMessageType.GetAnime, { id: anime.id });
+    }
 </script>
 
-<div bind:clientHeight={height}>
-    <button style=" background-color: {animeColor}">
-        <span class="anime-pic" style="background-image: url({animeCover});"></span>
+<div bind:clientHeight={height} style="animation-delay: {delay * 0.1}s;">
+    <button style="background-color: {animeColor}" on:click={setAnime}>
+        <span class="media_format {formatColor}" >{format}</span>
+        <span class="anime-pic" bind:clientHeight={picture_height} bind:clientWidth={picture_width}>
+            <Image src="{animeCover}" layout="constrained" height={picture_height} width={picture_width} style="border-radius: 0.5rem;"/>
+        </span>
         <p style="color: {textColor};">{animeTitle}</p>
     </button>
 </div>
@@ -57,23 +77,35 @@
 <style>
 
     div {
+        opacity: 0;
         position: relative;
         margin: 0 0.5rem;
+        animation-name: fadeIn;
+        animation-duration: 0.5s;
+        animation-fill-mode: forwards;
 
     }
     button {
         position: relative;
         width: clamp(8rem, 33vw, 15rem);
-        height: clamp(calc(8rem * 19 / 13), calc(33vw * 19 / 13), calc(15rem * 19 / 13));
-        
-        /* width: 35vw;
-        height: 20vh; */
+        aspect-ratio: 13/19;
 
         border: none;
         border-radius: 0.5rem;
         cursor: pointer;
     }
-    button span {
+    button .media_format {
+        position: absolute;
+        z-index: 1;
+        bottom: 0.5rem;
+        left: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.5rem;
+        font-weight: 700;
+        color: var(--background);
+    }
+
+    button .anime-pic {
         display: block;
         background-size: cover;
         background-position: center;
@@ -83,7 +115,9 @@
         position: absolute;
         top: 0;
         left: 0;
+        
     }
+
     button p {
         font-size: clamp(0.75rem, 2.25vw, 3rem);
         margin: 0;
@@ -93,6 +127,45 @@
         writing-mode: vertical-lr;
         text-align: center;
     }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    .TV {
+        background-color: #fea3aa ;
+    }
+
+    .TV_SHORT {
+        background-color: #f8b88b ;
+    }
+
+    .MOVIE {
+        background-color: #faf884 ;
+    }
+
+    .SPECIAL {
+        background-color: #baed91;
+    }
+
+    .OVA {
+        background-color: #b2cefe ;
+    }
+
+    .ONA {
+        background-color: #f2a2e8 ;
+    }
+
+    .MUSIC {
+        background-color: #b2fefe;
+    }
+
+
 
     /* button:hover span {
         width: vw;

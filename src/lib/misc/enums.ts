@@ -5,6 +5,7 @@ export enum PageIndex {
     DOWNLOADS,
     PROFILE,
     SETTINGS,
+    ANIME,
     PLAYER,
     SEARCH,
     AUTHENCATION,
@@ -13,7 +14,6 @@ export enum PageIndex {
     POPULAR,
     TOP,
     SEASON
-
 }
 
 export enum MediaTrendSort {
@@ -59,7 +59,74 @@ export enum AnimeGenres {
     Thriller = "Thriller"
 }
 
-export enum DisplayStateCSS {
-    SHOW,
-    HIDE,
+export enum MediaFormat {
+    TV = "TV",
+    TV_SHORT = "TV_SHORT",
+    MOVIE = "MOVIE",
+    SPECIAL = "SPECIAL",
+    OVA = "OVA",
+    ONA = "ONA",
+    MUSIC = "MUSIC",
+    MANGA = "MANGA",
+    NOVEL = "NOVEL",
+    ONE_SHOT = "ONE_SHOT"
+}
+
+export enum MediaStatus {
+    FINISHED = "FINISHED",
+    RELEASING = "RELEASING",
+    NOT_YET_RELEASED = "NOT_YET_RELEASED",
+    CANCELLED = "CANCELLED",
+    HIATUS = "HIATUS"
+}
+
+export enum AppStates {
+    CONNECTING,
+    READY,
+    CONNECTED,
+    
+}
+
+export enum ClientWSMessageType {
+    Search,
+    CommonPage,
+    HomePage,
+    SearchPage,
+    SeasonAnimes,
+    GetAnime,
+    GetEpisode
+}
+
+export enum ServerWSMessageType {
+    SearchResult,
+    CommonPageData,
+    HomePageRoute,
+    SearchPageContent,
+    SeasonAnimesList,
+    AnimeData,
+    EpisodeLink,
+    GogoAnimeData,
+}
+
+export enum Page {
+    Home,
+    About,
+    Releases,
+    Downloads,
+    Profile,
+    Settings,
+    Player,
+    Search,
+    Auth,
+    NotFound,
+    Trending,
+    Popular,
+    Top,
+    Seasonal
+}
+
+export enum GOGOServers {
+    Gogo = "gogocdn",
+    SreamSB = "streamsb",
+    Vidstreaming = "vidstreaming",
 }

@@ -1,12 +1,15 @@
 <script lang="ts">
-    import type { AnimeCardInfo } from "$lib";
+    import { clipTitle, PageIndex, History, type AnimeCardInfo, BodyScroll } from "$lib";
+
     import { get, writable } from "svelte/store";
+    import BannerImage from "./BannerImage.svelte";
     export let anime: AnimeCardInfo[];
 
     let currentSlide = writable(0);
     let previousSlide = 0;
     let slideChange = 0;
     let currentindex = 0; 
+    let offset = 0;
 
     let isDragStart = false, isDragging = false, prevPageX: number, prevScollLeft: number, positionDiff: number;
 
@@ -17,6 +20,7 @@
     let showMoreText = false;
 
     const dragStart = (e: TouchEvent | MouseEvent) => {
+        e.preventDefault();
         isDragStart = true;
         if (e instanceof MouseEvent) {
             prevPageX = e.pageX;
@@ -27,8 +31,8 @@
     }
 
     const dragging = (e: TouchEvent | MouseEvent) => {
-        if (!isDragStart) return;
         e.preventDefault();
+        if (!isDragStart) return;
         carousel.style.scrollBehavior = "auto";
         isDragging = true;
         if (e instanceof MouseEvent) {
@@ -73,6 +77,9 @@
         } 
     })
 
+    BodyScroll.subscribe(value => {
+        offset = value;
+    })
 
     
 </script>
@@ -82,12 +89,8 @@
 <section class="wrapper">
     <div class="carousel" bind:this={carousel} style="scroll-behavior: smooth;" on:mousedown={dragStart} on:touchstart={dragStart} on:touchmove={dragging}>
         {#each anime as anime, i}
-            <div class="carousel-item {i === get(currentSlide) ? 'active' : ''}" bind:clientWidth={ImgWidth}>
-                <div class="img" style="background-image: url({anime.bannerImage});"></div>
-                <div class="carousel-caption">
-                    <h3>{anime.title.english}</h3>
-                    <p>{anime.genres.join(", ")}</p>
-                </div>
+            <div class="carousel-item {i === get(currentSlide) ? 'active' : ''}" bind:clientWidth={ImgWidth} >
+                <BannerImage banner={anime.bannerImage} title={anime.title.english ?? anime.title.romaji} genres={anime.genres}/>
             </div>
         {/each}
     </div>
@@ -100,7 +103,7 @@
     {/if}
 </section>
 <section class="more-this-season {showMoreText ? 'show' : 'hide'}">
-    <button>See more from this season</button>
+    <button on:click={() => History.push(PageIndex.SEASON)}>See more from this season</button>
 </section>
 
 <style>
@@ -115,7 +118,7 @@
         width: 100vw;
         height: 35vh;
         display: flex;
-        transition: transform 0.5s;
+        /* transition: translateX 0.5s; */
         white-space: nowrap;
         overflow: hidden;
     }
@@ -138,61 +141,31 @@
         text-shadow: 2px 2px 2px black;
     }
 
-    .wrapper .carousel .carousel-item h3 {
-        font-size: 5vw;
-        margin: 0;
-        width: 55vw;
-        text-wrap: wrap;
-        color: var(--headings);
-    }
-
-    .wrapper .carousel .carousel-item p {
-        font-size: 3vw;
-        color: var(--sub-text);
-        margin-top: 0.1rem;
-    }
-
-    .wrapper .carousel .carousel-item .img {
-        width: 100vw;
-        height: 35vh;
-        background-size: cover;
-        background-position: center;
-    }   
-
-    .wrapper .carousel .carousel-item .carousel-caption {
-        position: absolute;
-        z-index: 1;
-        top: 75%;
-        left: 5vw;
-        transform: translate(0, -50%);
-        text-align: left;
-        text-shadow: 2px 2px 2px black;
-        font-size: 2vw;
-    }
     .indicator {
         position: relative;
-        width: 0.5rem;
-        height: 0.5rem;
+        width: clamp(1rem, 2vw, 3rem);
+        height: 0.75rem;
         background: transparent;
-        margin: 0 0.1rem;
         cursor: pointer;
         border: none;
         padding: 0;
         margin: 0 0.2rem;
+        
     }
     
     .indicator span {
         position: absolute;
-        bottom: 0;
+        bottom: 0rem;
         left: 0;
         display: block;
         background-color: white;
-        width: 0.5rem;
+        width: 100%;
         height: 0.1rem;
+        
         transition: height 0.3s ease;
     }
     .indicator.active span {
-        height: 0.5rem;
+        height: 100%;
         background-color: var(--primary);
     }
 
@@ -202,6 +175,11 @@
         left: 50%;
         transform: translate(-50%, 0);
         z-index: 5;
+        height: 0.5rem;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
 
     .more-this-season {
@@ -210,6 +188,7 @@
         justify-content: center;
         align-items: center;
         background-color: var(--primary);
+        transition: opacity 1s ease, position 1s ease;
         
     }
     .more-this-season button {
@@ -219,16 +198,18 @@
         padding: 0.5rem 1rem;
         font-size: 3vw;
         cursor: pointer;
-        transition: all 0.3s ease;
+        /* transition: all 0.3s ease; */
     }
 
     .more-this-season.show {
         position: relative;
         opacity: 1;
+        cursor: pointer;
     }
     .more-this-season.hide {
         position: absolute;
         opacity: 0;
+        cursor: none;
     }
 
 

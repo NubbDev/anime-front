@@ -8,12 +8,10 @@
     import FilledProfile from '$lib/assets/icons/circle-user-filled.svg?component';
     import LineProfile from '$lib/assets/icons/circle-user.svg?component';
     import { onMount, type ComponentType } from 'svelte';
-    import { DisplayStateCSS, PageIndex, PageStore } from '$lib';
-    import { get } from 'svelte/store';
+    import { PageIndex, History } from '$lib';
 
-    let path: PageIndex = get(PageStore);
+    let path: PageIndex;
     
-
     const navOptions: { name: string, href: PageIndex, state: boolean, selected: ComponentType, unSelected: ComponentType }[] = [
         {
             name: 'Home',
@@ -46,9 +44,11 @@
         }
     ]
 
+    onMount(async () => {
+        path = await History.get();
+    })
 
-
-    PageStore.subscribe((value) => {
+    History.onUpdate(value => {
         path = value;
         for (const option in navOptions) {
             if (navOptions[option].href === path) {
@@ -58,11 +58,12 @@
             }
         }
     })
-    function navigateTo(page: PageIndex) {
-        PageStore.set(page);
 
-        
+    function navigateTo(page: PageIndex) {
+        History.push(page);
     }
+
+    
 </script>
 
 <nav class="nav_menu">
@@ -94,7 +95,7 @@
         backdrop-filter: blur(5px);
 
         transition: all 0.3s ease;
-        z-index: 100;
+        z-index: 10;
     }
 
     nav button span {
